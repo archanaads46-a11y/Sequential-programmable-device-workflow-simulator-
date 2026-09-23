@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sequential Programmable Device Workflow Simulator</title>
+<style>
+  :root{
+    --bg:#0a0e0f;
+    --panel:#10171a;
+    --panel2:#141d20;
+    --grid:#1c2a2c;
+    --line:#26383b;
+    --trace:#7dffc0;
+    --trace-dim:#3f7a63;
+    --amber:#ffb454;
+    --red:#ff6161;
+    --text:#d6ece5;
+    --muted:#6f8f8a;
+    --mono: "SF Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 1px 1px, var(--grid) 1px, transparent 1px) 0 0/22px 22px,
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--trace);color:#04120c;}
+
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:rgba(10,14,15,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .top-inner{
+    max-width:1180px; margin:0 auto; padding:14px 20px 0;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:10px; margin-bottom:12px; flex-wrap:wrap;
+  }
+  .brand .mark{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--trace);
+    box-shadow:0 0 8px var(--trace);
+    flex:none;
+  }
+  .brand h1{
+    font-size:15px; font-weight:600; letter-spacing:.01em; margin:0;
+    font-family:var(--mono);
+  }
+  .brand .sub{color:var(--muted); font-size:12px; font-family:var(--mono);}
+  nav.tabs{
+    display:flex; gap:2px; overflow-x:auto; scrollbar-width:none;
+  }
+  nav.tabs::-webkit-scrollbar{display:none;}
+  nav.tabs button{
+    background:transparent; border:none; color:var(--muted);
+    font-family:var(--mono); font-size:12.5px; padding:9px 13px;
+    cursor:pointer; white-space:nowrap; border-bottom:2px solid transparent;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  nav.tabs button:hover{color:var(--text);}
+  nav.tabs button.active{color:var(--trace); border-bottom-color:var(--trace);}
+
+  main{max-width:1180px; margin:0 auto; padding:22px 20px 60px;}
+  .view{display:none;}
+  .view.active{display:block; animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0; transform:translateY(3px);} to{opacity:1; transform:translateY(0);}}
+
+  h2.view-title{
+    font-family:var(--mono); font-size:13px; color:var(--trace);
+    letter-spacing:.02em; margin:0 0 4px;
+  }
+  p.view-desc{color:var(--muted); font-size:13.5px; margin:0 0 20px; max-width:62ch; line-height:1.55;}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:6px;
+    padding:16px 18px;
+  }
+  .grid2{display:grid; grid-template-columns:340px 1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
+  @media (max-width:860px){ .grid2{grid-template-columns:1fr;} .grid3{grid-template-columns:1fr;} }
+
+  label.field{display:block; font-size:11.5px; color:var(--muted); font-family:var(--mono); margin:12px 0 5px;}
+  label.field:first-child{margin-top:0;}
+  select, input[type=number]{
+    width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    border-radius:4px; padding:7px 9px; font-family:var(--mono); font-size:13px;
+  }
+  select:focus, input:focus{outline:2px solid var(--trace-dim); outline-offset:1px;}
+
+  .btnrow{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
+  button.btn{
+    font-family:var(--mono); font-size:12.5px; padding:8px 14px; border-radius:4px;
+    border:1px solid var(--line); background:var(--panel2); color:var(--text);
+    cursor:pointer; transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  button.btn:hover{border-color:var(--trace-dim); color:var(--trace);}
+  button.btn:focus-visible{outline:2px solid var(--trace); outline-offset:2px;}
+  button.btn.primary{background:var(--trace); color:#04120c; border-color:var(--trace); font-weight:600;}
+  button.btn.primary:hover{background:#95ffce;}
+  button.btn.danger:hover{border-color:var(--red); color:var(--red);}
+  button.btn:disabled{opacity:.4; cursor:not-allowed;}
+  button.btn:disabled:hover{border-color:var(--line); color:var(--text);}
+
+  .sig-list{display:flex; flex-direction:column; gap:6px; margin-top:6px;}
+  .sig-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel2); border:1px solid var(--line); border-radius:4px;
+    padding:7px 10px; cursor:pointer; user-select:none;
+  }
+  .sig-toggle span.name{font-family:var(--mono); font-size:12.5px;}
+  .sig-toggle .dot{
+    width:9px;height:9px;border-radius:50%; background:#33403f; box-shadow:none;
+    transition:all .12s ease;
+  }
+  .sig-toggle.on .dot{background:var(--trace); box-shadow:0 0 6px var(--trace);}
+  .sig-toggle.on span.name{color:var(--trace);}
+
+  .stat-card{
+    background:var(--panel2); border:1px solid var(--line); border-radius:5px; padding:13px 14px;
+  }
+  .stat-card .k{font-family:var(--mono); font-size:10.5px; color:var(--muted); letter-spacing:.03em;}
+  .stat-card .v{font-family:var(--mono); font-size:20px; margin-top:6px; color:var(--trace);}
+  .stat-card .v.err{color:var(--red);}
+  .stat-card .v.small{font-size:14px; color:var(--text);}
+
+  .badge{
+    display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 8px;
+    border-radius:20px; border:1px solid var(--line); color:var(--muted);
+  }
+  .badge.state-normal{border-color:var(--trace-dim); color:var(--trace);}
+  .badge.state-fault{border-color:#7a3030; color:var(--red);}
+  .badge.state-done{border-color:var(--amber); color:var(--amber);}
+
+  table{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12px;}
+  th{
+    text-align:left; color:var(--muted); font-weight:500; font-size:10.5px;
+    letter-spacing:.03em; padding:7px 8px; border-bottom:1px solid var(--line);
+    position:sticky; top:0; background:var(--panel);
+  }
+  td{padding:6px 8px; border-bottom:1px solid var(--grid); color:var(--text);}
+  tr:hover td{background:rgba(125,255,192,0.03);}
+  .scroll-table{max-height:340px; overflow:auto; border:1px solid var(--line); border-radius:5px;}
+  .scroll-table.tall{max-height:460px;}
+  .empty-row td{color:var(--muted); text-align:center; padding:22px 0;}
+
+  .pill-out{font-family:var(--mono); font-size:11px; padding:1px 6px; border-radius:3px; background:var(--panel2); color:var(--muted);}
+  .pill-out.hi{background:rgba(125,255,192,.12); color:var(--trace);}
+  .pill-out.err{background:rgba(255,97,97,.12); color:var(--red);}
+
+  .timeline{overflow-x:auto; border:1px solid var(--line); border-radius:5px; padding:10px; background:var(--panel2);}
+  .timeline svg{display:block;}
+
+  .diagram-wrap{border:1px solid var(--line); border-radius:5px; background:var(--panel2); padding:6px; overflow:auto;}
+
+  .fault-log-item{
+    display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--grid);
+    font-family:var(--mono); font-size:12px;
+  }
+  .fault-log-item:last-child{border-bottom:none;}
+  .fault-log-item .tag{color:var(--red); flex:none;}
+
+  .tc-card{
+    border:1px solid var(--line); border-radius:5px; background:var(--panel2); padding:13px 14px; margin-bottom:10px;
+  }
+  .tc-card h3{margin:0 0 4px; font-size:13px; font-family:var(--mono); color:var(--text);}
+  .tc-card p{margin:0 0 10px; font-size:12.5px; color:var(--muted); line-height:1.5;}
+  .tc-result{font-family:var(--mono); font-size:12px; margin-top:8px;}
+  .tc-result.pass{color:var(--trace);}
+  .tc-result.fail{color:var(--red);}
+
+  .about-body{font-size:14px; line-height:1.7; color:var(--text); max-width:64ch;}
+  .about-body h3{font-family:var(--mono); font-size:12.5px; color:var(--trace); margin:22px 0 8px;}
+  .about-body code{font-family:var(--mono); background:var(--panel2); padding:1px 5px; border-radius:3px; font-size:12.5px;}
+
+  .wd-state{
+    border:1px solid var(--line); border-radius:5px; padding:12px 14px; background:var(--panel2);
+    margin-bottom:9px;
+  }
+  .wd-state .hd{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  .wd-state .hd .dot{width:8px;height:8px;border-radius:50%;}
+  .wd-state .hd b{font-family:var(--mono); font-size:13px;}
+  .wd-state .rule{font-family:var(--mono); font-size:11.5px; color:var(--muted); padding:2px 0;}
+  .wd-state .rule b{color:var(--text); font-weight:500;}
+
+  footer{max-width:1180px; margin:0 auto; padding:0 20px 40px; color:var(--muted); font-size:11.5px; font-family:var(--mono);}
+
+  .small-note{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5;}
+  .flex-between{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <span class="mark"></span>
+      <h1>SEQ&#8203;·&#8203;SIM // Programmable Device Workflow Simulator</h1>
+      <span class="sub">clocked FSM &middot; fault injection &middot; local, no server</span>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<footer>index.html &mdash; single file, no build step, no external dependencies. Safe to serve from GitHub Pages as-is.</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------------------------------------------------------
+     1. FSM DEFINITION
+  --------------------------------------------------------------- */
+  const STATES = ["IDLE","INPUT_CHECK","PROCESSING","VALIDATION","OUTPUT","COMPLETE",
+                  "INPUT_ERROR","PROCESS_ERROR","TIMEOUT","SYSTEM_FAULT"];
+  const FAULT_STATES = ["INPUT_ERROR","PROCESS_ERROR","TIMEOUT","SYSTEM_FAULT"];
+  const TERMINAL_STATES = ["COMPLETE", ...FAULT_STATES];
+  const INPUTS = ["START","DATA_VALID","READY","VALID","ACK","FAULT"];
+  const OUTPUTS = ["PROCESS_ENABLE","SUCCESS","ERROR"];
+  const WAIT_LIMIT = 5; // cycles a wait-state may idle before timing out
+
+  function nextState(state, sig, waitCount){
+    switch(state){
+      case "IDLE":
+        return sig.START ? "INPUT_CHECK" : "IDLE";
+      case "INPUT_CHECK":
+        if (sig.FAULT) return "INPUT_ERROR";
+        if (sig.DATA_VALID) return "PROCESSING";
+        if (waitCount >= WAIT_LIMIT) return "INPUT_ERROR";
+        return "INPUT_CHECK";
+      case "PROCESSING":
+        if (sig.FAULT) return "PROCESS_ERROR";
+        if (sig.READY) return "VALIDATION";
+        if (waitCount >= WAIT_LIMIT) return "TIMEOUT";
+        return "PROCESSING";
+      case "VALIDATION":
+        if (sig.FAULT) return "SYSTEM_FAULT";
+        if (sig.VALID) return "OUTPUT";
+        return "PROCESS_ERROR";
+      case "OUTPUT":
+        if (sig.FAULT) return "SYSTEM_FAULT";
+        if (sig.ACK) return "COMPLETE";
+        if (waitCount >= WAIT_LIMIT) return "TIMEOUT";
+        return "OUTPUT";
+      default:
+        return state; // terminal states hold until reset
+    }
+  }
+
+  function condLabel(state, sig){
+    switch(state){
+      case "IDLE": return sig.START ? "START=1" : "START=0 (hold)";
+      case "INPUT_CHECK":
+        if (sig.FAULT) return "FAULT=1";
+        if (sig.DATA_VALID) return "DATA_VALID=1";
+        return "DATA_VALID=0 (wait)";
+      case "PROCESSING":
+        if (sig.FAULT) return "FAULT=1";
+        if (sig.READY) return "READY=1";
+        return "READY=0 (wait)";
+      case "VALIDATION":
+        if (sig.FAULT) return "FAULT=1";
+        return sig.VALID ? "VALID=1" : "VALID=0";
+      case "OUTPUT":
+        if (sig.FAULT) return "FAULT=1";
+        if (sig.ACK) return "ACK=1";
+        return "ACK=0 (wait)";
+      default: return "&mdash;";
+    }
+  }
+
+  function outputsFor(state){
+    return {
+      PROCESS_ENABLE: ["INPUT_CHECK","PROCESSING","VALIDATION","OUTPUT"].includes(state) ? 1 : 0,
+      SUCCESS: state === "COMPLETE" ? 1 : 0,
+      ERROR: FAULT_STATES.includes(state) ? 1 : 0
+    };
+  }
+
+  /* ---------------------------------------------------------------
+     2. SIMULATION STATE
+  --------------------------------------------------------------- */
+  const sim = {
+    state: "IDLE",
+    prevState: null,
+    cycle: 0,
+    maxCycles: 20,
+    clockMs: 500,
+    initialState: "IDLE",
+    inputs: Object.fromEntries(INPUTS.map(k=>[k,0])),
+    waitCount: 0,
+    trace: [],       // execution trace rows {cycle,current,input,cond,next,out,status}
+    timeline: [],     // per-cycle snapshot for waveform
+    faultLog: [],     // fault events
+    running: false,
+    timer: null,
+    demoQueue: null,  // array of input-patches, one per cycle, for demo/test modes
+    demoLabel: null
+  };
+
+  function snapshotInputs(){ return INPUTS.map(k=>sim.inputs[k]).join(""); }
+
+  function logFault(msg){
+    sim.faultLog.push({cycle: sim.cycle, state: sim.state, msg});
+  }
+
+  function resetSim(keepConfig){
+    stopRun();
+    sim.state = sim.initialState;
+    sim.prevState = null;
+    sim.cycle = 0;
+    sim.waitCount = 0;
+    sim.trace = [];
+    sim.timeline = [];
+    if (!keepConfig){
+      sim.faultLog = [];
+      INPUTS.forEach(k=>sim.inputs[k]=0);
+    }
+    sim.demoQueue = null;
+    sim.demoLabel = null;
+    renderAll();
+  }
+
+  function stepCycle(){
+    if (TERMINAL_STATES.includes(sim.state) || sim.cycle >= sim.maxCycles){
+      stopRun();
+      return false;
+    }
+
+    // apply queued demo inputs for this cycle, if any
+    if (sim.demoQueue && sim.demoQueue.length){
+      const patch = sim.demoQueue.shift();
+      Object.assign(sim.inputs, patch);
+    }
+
+    const before = sim.state;
+    const cond = condLabel(before, sim.inputs);
+    const nxt = nextState(before, sim.inputs, sim.waitCount);
+    const out = outputsFor(nxt);
+
+    sim.waitCount = (nxt === before) ? sim.waitCount + 1 : 0;
+
+    const wasFault = !FAULT_STATES.includes(before) && FAULT_STATES.includes(nxt);
+    if (wasFault) logFault(`Transitioned into fault state ${nxt} from ${before} (${cond}).`);
+
+    let status = "RUN";
+    if (FAULT_STATES.includes(nxt)) status = "FAULT";
+    else if (nxt === "COMPLETE") status = "DONE";
+    else if (nxt === before) status = "WAIT";
+
+    sim.cycle += 1;
+    sim.trace.push({
+      cycle: sim.cycle, current: before, input: snapshotInputs(),
+      cond, next: nxt, out: {...out}, status
+    });
+    sim.timeline.push({cycle: sim.cycle, state: nxt, inputs: {...sim.inputs}, out});
+
+    sim.prevState = before;
+    sim.state = nxt;
+
+    renderAll();
+
+    if (TERMINAL_STATES.includes(sim.state) || sim.cycle >= sim.maxCycles){
+      stopRun();
+      return false;
+    }
+    return true;
+  }
+
+  function startRun(){
+    if (sim.running) return;
+    if (TERMINAL_STATES.includes(sim.state) || sim.cycle >= sim.maxCycles) return;
+    sim.running = true;
+    renderControls();
+    sim.timer = setInterval(()=>{
+      const cont = stepCycle();
+      if (!cont) stopRun();
+    }, sim.clockMs);
+  }
+
+  function stopRun(){
+    sim.running = false;
+    if (sim.timer){ clearInterval(sim.timer); sim.timer = null; }
+    renderControls();
+  }
+
+  /* ---------------------------------------------------------------
+     3. DEMO / TEST SEQUENCES
+  --------------------------------------------------------------- */
+  function demoNormal(){
+    resetSim(true);
+    sim.demoLabel = "Demo: normal workflow";
+    sim.demoQueue = [
+      {START:1,DATA_VALID:0,READY:0,VALID:0,ACK:0,FAULT:0},
+      {START:0,DATA_VALID:1},
+      {DATA_VALID:0,READY:1},
+      {READY:0,VALID:1},
+      {VALID:0,ACK:1},
+      {ACK:0}
+    ];
+    Object.assign(sim.inputs,{START:0,DATA_VALID:0,READY:0,VALID:0,ACK:0,FAULT:0});
+    renderAll();
+  }
+
+  function demoFault(){
+    resetSim(true);
+    sim.demoLabel = "Demo: fault path";
+    sim.demoQueue = [
+      {START:1},
+      {START:0,DATA_VALID:1},
+      {DATA_VALID:0,READY:1},
+      {READY:0,FAULT:1}
+    ];
+    Object.assign(sim.inputs,{START:0,DATA_VALID:0,READY:0,VALID:0,ACK:0,FAULT:0});
+    renderAll();
+  }
+
+  function demoRandom(){
+    resetSim(true);
+    sim.demoLabel = "Synthetic random sequence";
+    const q = [];
+    for (let i=0;i<sim.maxCycles;i++){
+      const patch = {};
+      INPUTS.forEach(k=>{ if (Math.random()<0.4) patch[k]=1; else if (Math.random()<0.3) patch[k]=0; });
+      q.push(patch);
+    }
+    sim.demoQueue = q;
+    renderAll();
+  }
+
+  function runQueueToCompletion(){
+    let guard = 0;
+    while (sim.demoQueue && sim.demoQueue.length && guard < 500){
+      if (!stepCycle()) break;
+      guard++;
+    }
+    // drain any remaining natural transitions until terminal or max cycles
+    while (!TERMINAL_STATES.includes(sim.state) && sim.cycle < sim.maxCycles && guard < 500){
+      if (!stepCycle()) break;
+      guard++;
+    }
+  }
+
+  /* ---------------------------------------------------------------
+     4. TEST CASES
+  --------------------------------------------------------------- */
+  const TEST_CASES = [
+    {
+      id:"tc-happy",
+      name:"TC-01 &middot; Happy path completion",
+      desc:"Drives START, DATA_VALID, READY, VALID, ACK in sequence. Expects the device to reach COMPLETE with SUCCESS=1.",
+      seq:[{START:1},{START:0,DATA_VALID:1},{DATA_VALID:0,READY:1},{READY:0,VALID:1},{VALID:0,ACK:1},{ACK:0}],
+      expect:"COMPLETE"
+    },
+    {
+      id:"tc-input-fault",
+      name:"TC-02 &middot; Fault during input check",
+      desc:"Raises FAULT while waiting in INPUT_CHECK. Expects a transition to INPUT_ERROR with ERROR=1.",
+      seq:[{START:1},{START:0,FAULT:1}],
+      expect:"INPUT_ERROR"
+    },
+    {
+      id:"tc-validation-reject",
+      name:"TC-03 &middot; Validation rejects data",
+      desc:"Reaches VALIDATION but VALID never asserts. Expects a transition to PROCESS_ERROR.",
+      seq:[{START:1},{START:0,DATA_VALID:1},{DATA_VALID:0,READY:1},{READY:0}],
+      expect:"PROCESS_ERROR"
+    },
+    {
+      id:"tc-timeout",
+      name:"TC-04 &middot; Processing timeout",
+      desc:`Enters PROCESSING and READY never asserts for ${WAIT_LIMIT} cycles. Expects a transition to TIMEOUT.`,
+      seq:[{START:1},{START:0,DATA_VALID:1},{DATA_VALID:0}],
+      expect:"TIMEOUT",
+      padWaitCycles:true
+    },
+    {
+      id:"tc-system-fault",
+      name:"TC-05 &middot; System fault in output stage",
+      desc:"Reaches OUTPUT then FAULT asserts. Expects an immediate transition to SYSTEM_FAULT.",
+      seq:[{START:1},{START:0,DATA_VALID:1},{DATA_VALID:0,READY:1},{READY:0,VALID:1},{VALID:0,FAULT:1}],
+      expect:"SYSTEM_FAULT"
+    }
+  ];
+  const testResults = {};
+
+  function runTestCase(tc){
+    const saved = JSON.parse(JSON.stringify(sim.inputs));
+    const savedState = sim.state, savedCycle = sim.cycle, savedTrace = sim.trace,
+          savedTimeline = sim.timeline, savedWait = sim.waitCount, savedPrev = sim.prevState,
+          savedFaultLog = sim.faultLog;
+
+    sim.state = sim.initialState; sim.prevState = null; sim.cycle = 0; sim.waitCount = 0;
+    sim.trace = []; sim.timeline = []; sim.faultLog = [];
+    INPUTS.forEach(k=>sim.inputs[k]=0);
+
+    let queue = tc.seq.slice();
+    if (tc.padWaitCycles){
+      for (let i=0;i<WAIT_LIMIT+1;i++) queue.push({});
+    }
+    let guard = 0;
+    while (queue.length && guard < 200){
+      Object.assign(sim.inputs, queue.shift());
+      stepCycleSilent();
+      guard++;
+    }
+    while (!TERMINAL_STATES.includes(sim.state) && sim.cycle < 40 && guard < 200){
+      stepCycleSilent();
+      guard++;
+    }
+
+    const pass = sim.state === tc.expect;
+    testResults[tc.id] = {pass, finalState: sim.state, cycles: sim.cycle};
+
+    sim.state = savedState; sim.prevState = savedPrev; sim.cycle = savedCycle;
+    sim.waitCount = savedWait; sim.trace = savedTrace; sim.timeline = savedTimeline;
+    sim.faultLog = savedFaultLog;
+    Object.assign(sim.inputs, saved);
+  }
+
+  function stepCycleSilent(){
+    const before = sim.state;
+    const cond = condLabel(before, sim.inputs);
+    const nxt = nextState(before, sim.inputs, sim.waitCount);
+    sim.waitCount = (nxt === before) ? sim.waitCount + 1 : 0;
+    sim.cycle += 1;
+    sim.state = nxt;
+  }
+
+  function runAllTests(){
+    TEST_CASES.forEach(runTestCase);
+    renderTestCases();
+  }
+
+  /* ---------------------------------------------------------------
+     5. TABS / VIEW ROUTING
+  --------------------------------------------------------------- */
+  const VIEWS = [
+    {id:"dashboard", label:"Dashboard"},
+    {id:"designer", label:"Workflow Designer"},
+    {id:"simulator", label:"Simulator"},
+    {id:"diagram", label:"State Diagram"},
+    {id:"truth", label:"Truth Table"},
+    {id:"tests", label:"Test Cases"},
+    {id:"fault", label:"Fault Injection"},
+    {id:"logs", label:"State Logs"},
+    {id:"about", label:"About"}
+  ];
+  let activeView = "dashboard";
+
+  function buildTabs(){
+    const nav = document.getElementById("tabs");
+    nav.innerHTML = "";
+    VIEWS.forEach(v=>{
+      const b = document.createElement("button");
+      b.textContent = v.label;
+      b.dataset.view = v.id;
+      b.className = v.id === activeView ? "active" : "";
+      b.addEventListener("click", ()=>{ activeView = v.id; buildTabs(); renderAll(); });
+      nav.appendChild(b);
+    });
+  }
+
+  /* ---------------------------------------------------------------
+     6. RENDERING
+  --------------------------------------------------------------- */
+  function stateBadgeClass(s){
+    if (FAULT_STATES.includes(s)) return "state-fault";
+    if (s === "COMPLETE") return "state-done";
+    return "state-normal";
+  }
+
+  function renderAll(){
+    const main = document.getElementById("main");
+    main.innerHTML = "";
+    const view = document.createElement("div");
+    view.className = "view active";
+
+    if (activeView === "dashboard") view.appendChild(renderDashboard());
+    else if (activeView === "designer") view.appendChild(renderDesigner());
+    else if (activeView === "simulator") view.appendChild(renderSimulator());
+    else if (activeView === "diagram") view.appendChild(renderDiagramView());
+    else if (activeView === "truth") view.appendChild(renderTruthTable());
+    else if (activeView === "tests") view.appendChild(renderTestCasesView());
+    else if (activeView === "fault") view.appendChild(renderFaultView());
+    else if (activeView === "logs") view.appendChild(renderLogsView());
+    else if (activeView === "about") view.appendChild(renderAbout());
+
+    main.appendChild(view);
+  }
+
+  function renderControls(){
+    // re-render only if simulator or dashboard is active, to reflect run state without losing focus elsewhere
+    if (activeView === "simulator" || activeView === "dashboard") renderAll();
+  }
+
+  function el(tag, cls, html){
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (html !== undefined) e.innerHTML = html;
+    return e;
+  }
+
+  // ---- Dashboard ----
+  function renderDashboard(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","01 / DASHBOARD"));
+    wrap.appendChild(el("p","view-desc","Live overview of the device: current state, elapsed clock cycles, active signals, and outputs. Switch to Simulator to drive inputs."));
+
+    const cards = el("div","grid3");
+    const out = outputsFor(sim.state);
+
+    cards.appendChild(statCard("CURRENT STATE", `<span class="badge ${stateBadgeClass(sim.state)}">${sim.state}</span>`, true));
+    cards.appendChild(statCard("CLOCK CYCLE", `${sim.cycle} <span style="color:var(--muted);font-size:12px">/ ${sim.maxCycles}</span>`));
+    cards.appendChild(statCard("STATUS", sim.running ? "RUNNING" : (TERMINAL_STATES.includes(sim.state) ? "HALTED" : "IDLE")));
+    wrap.appendChild(cards);
+
+    const row2 = el("div","grid2");
+    row2.style.marginTop = "14px";
+
+    const sigPanel = el("div","panel");
+    sigPanel.appendChild(el("div","","<b style='font-family:var(--mono);font-size:12px;color:var(--muted)'>INPUT SIGNALS</b>"));
+    const sigList = el("div","sig-list");
+    INPUTS.forEach(k=>{
+      const t = el("div", "sig-toggle" + (sim.inputs[k] ? " on":""));
+      t.innerHTML = `<span class="name">${k}</span><span class="dot"></span>`;
+      sigList.appendChild(t);
+    });
+    sigPanel.appendChild(sigList);
+    row2.appendChild(sigPanel);
+
+    const outPanel = el("div","panel");
+    outPanel.appendChild(el("div","","<b style='font-family:var(--mono);font-size:12px;color:var(--muted)'>OUTPUT SIGNALS</b>"));
+    const outList = el("div","sig-list");
+    OUTPUTS.forEach(k=>{
+      const on = out[k];
+      const t = el("div", "sig-toggle" + (on ? " on":""));
+      t.innerHTML = `<span class="name">${k}</span><span class="dot"></span>`;
+      outList.appendChild(t);
+    });
+    outPanel.appendChild(outList);
+    row2.appendChild(outPanel);
+
+    wrap.appendChild(row2);
+
+    const quick = el("div","btnrow");
+    const goSim = el("button","btn primary","Open Simulator");
+    goSim.onclick = ()=>{ activeView="simulator"; buildTabs(); renderAll(); };
+    const goDiag = el("button","btn","View State Diagram");
+    goDiag.onclick = ()=>{ activeView="diagram"; buildTabs(); renderAll(); };
+    quick.appendChild(goSim); quick.appendChild(goDiag);
+    wrap.appendChild(quick);
+
+    return wrap;
+  }
+
+  function statCard(k,v,big){
+    const c = el("div","stat-card");
+    c.appendChild(el("div","k",k));
+    c.appendChild(el("div","v"+(big?"":" small"),v));
+    return c;
+  }
+
+  // ---- Workflow Designer ----
+  const DESIGNER_RULES = {
+    IDLE: [["START=1","&rarr; INPUT_CHECK"],["START=0","hold in IDLE"]],
+    INPUT_CHECK: [["FAULT=1","&rarr; INPUT_ERROR"],["DATA_VALID=1","&rarr; PROCESSING"],[`wait &ge; ${WAIT_LIMIT} cycles`,"&rarr; INPUT_ERROR"]],
+    PROCESSING: [["FAULT=1","&rarr; PROCESS_ERROR"],["READY=1","&rarr; VALIDATION"],[`wait &ge; ${WAIT_LIMIT} cycles`,"&rarr; TIMEOUT"]],
+    VALIDATION: [["FAULT=1","&rarr; SYSTEM_FAULT"],["VALID=1","&rarr; OUTPUT"],["VALID=0","&rarr; PROCESS_ERROR"]],
+    OUTPUT: [["FAULT=1","&rarr; SYSTEM_FAULT"],["ACK=1","&rarr; COMPLETE"],[`wait &ge; ${WAIT_LIMIT} cycles`,"&rarr; TIMEOUT"]],
+    COMPLETE: [["&mdash;","terminal &middot; SUCCESS=1"]],
+    INPUT_ERROR: [["&mdash;","terminal &middot; ERROR=1"]],
+    PROCESS_ERROR: [["&mdash;","terminal &middot; ERROR=1"]],
+    TIMEOUT: [["&mdash;","terminal &middot; ERROR=1"]],
+    SYSTEM_FAULT: [["&mdash;","terminal &middot; ERROR=1"]]
+  };
+
+  function renderDesigner(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","02 / WORKFLOW DESIGNER"));
+    wrap.appendChild(el("p","view-desc","The programmed workflow as a set of per-state transition rules. This is the ruleset the Simulator and Truth Table execute &mdash; read-only in this build."));
+
+    const panel = el("div","panel");
+    STATES.forEach(s=>{
+      const card = el("div","wd-state");
+      const hd = el("div","hd");
+      const dotColor = FAULT_STATES.includes(s) ? "var(--red)" : (s==="COMPLETE" ? "var(--amber)" : "var(--trace)");
+      hd.innerHTML = `<span class="dot" style="background:${dotColor}"></span><b>${s}</b>`;
+      card.appendChild(hd);
+      DESIGNER_RULES[s].forEach(([cond,res])=>{
+        card.appendChild(el("div","rule",`if <b>${cond}</b> &nbsp;${res}`));
+      });
+      panel.appendChild(card);
+    });
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
+  // ---- Simulator ----
+  function renderSimulator(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","03 / SIMULATOR"));
+    wrap.appendChild(el("p","view-desc","Drive input signals by hand, step the clock, or run continuously. Reset returns the device to its configured initial state."));
+
+    const grid = el("div","grid2");
+
+    // --- left: controls ---
+    const left = el("div","panel");
+
+    left.appendChild(el("label","field","Initial state"));
+    const selInit = document.createElement("select");
+    STATES.forEach(s=>{
+      const o = document.createElement("option"); o.value=s; o.textContent=s;
+      if (s===sim.initialState) o.selected = true;
+      selInit.appendChild(o);
+    });
+    selInit.onchange = (e)=>{ sim.initialState = e.target.value; resetSim(true); };
+    left.appendChild(selInit);
+
+    left.appendChild(el("label","field","Max cycles"));
+    const inMax = document.createElement("input");
+    inMax.type="number"; inMax.min="1"; inMax.max="200"; inMax.value=sim.maxCycles;
+    inMax.onchange = (e)=>{ sim.maxCycles = Math.max(1, parseInt(e.target.value)||20); renderAll(); };
+    left.appendChild(inMax);
+
+    left.appendChild(el("label","field","Clock (ms)"));
+    const inClk = document.createElement("input");
+    inClk.type="number"; inClk.min="50"; inClk.max="5000"; inClk.step="50"; inClk.value=sim.clockMs;
+    inClk.onchange = (e)=>{
+      sim.clockMs = Math.max(50, parseInt(e.target.value)||500);
+      if (sim.running){ stopRun(); startRun(); } else renderAll();
+    };
+    left.appendChild(inClk);
+
+    left.appendChild(el("label","field","Input signals"));
+    const sigList = el("div","sig-list");
+    INPUTS.forEach(k=>{
+      const t = el("div", "sig-toggle" + (sim.inputs[k] ? " on":""));
+      t.innerHTML = `<span class="name">${k}</span><span class="dot"></span>`;
+      t.onclick = ()=>{ sim.inputs[k] = sim.inputs[k] ? 0 : 1; renderAll(); };
+      sigList.appendChild(t);
+    });
+    left.appendChild(sigList);
+
+    const btns = el("div","btnrow");
+    const halted = TERMINAL_STATES.includes(sim.state) || sim.cycle >= sim.maxCycles;
+    const bRun = el("button","btn primary", sim.running ? "Pause" : "Run");
+    bRun.disabled = halted && !sim.running;
+    bRun.onclick = ()=>{ sim.running ? stopRun() : startRun(); };
+    const bStep = el("button","btn","Step");
+    bStep.disabled = sim.running || halted;
+    bStep.onclick = ()=>stepCycle();
+    const bReset = el("button","btn danger","Reset");
+    bReset.onclick = ()=>resetSim(true);
+    btns.appendChild(bRun); btns.appendChild(bStep); btns.appendChild(bReset);
+    left.appendChild(btns);
+
+    left.appendChild(el("label","field","Demo modes"));
+    const dbtns = el("div","btnrow");
+    const d1 = el("button","btn","Demo: normal workflow"); d1.onclick=demoNormal;
+    const d2 = el("button","btn","Demo: fault path"); d2.onclick=demoFault;
+    const d3 = el("button","btn","Synthetic random sequence"); d3.onclick=demoRandom;
+    dbtns.appendChild(d1); dbtns.appendChild(d2); dbtns.appendChild(d3);
+    left.appendChild(dbtns);
+    if (sim.demoLabel){
+      left.appendChild(el("div","small-note",`Queued: <b style="color:var(--trace)">${sim.demoLabel}</b> &mdash; press Run or Step to play it through.`));
+    }
+
+    grid.appendChild(left);
+
+    // --- right: live state + timeline ---
+    const right = el("div");
+
+    const statRow = el("div","grid3");
+    statRow.appendChild(statCard("CURRENT STATE", `<span class="badge ${stateBadgeClass(sim.state)}">${sim.state}</span>`, true));
+    statRow.appendChild(statCard("CLOCK CYCLE", `${sim.cycle} <span style="color:var(--muted);font-size:12px">/ ${sim.maxCycles}</span>`));
+    statRow.appendChild(statCard("PREVIOUS STATE", sim.prevState || "&mdash;"));
+    right.appendChild(statRow);
+
+    const tlPanel = el("div","panel");
+    tlPanel.style.marginTop = "14px";
+    tlPanel.appendChild(el("div","","<b style='font-family:var(--mono);font-size:12px;color:var(--muted)'>CLOCK-CYCLE TIMELINE</b>"));
+    tlPanel.appendChild(buildTimeline());
+    right.appendChild(tlPanel);
+
+    const tracePanel = el("div","panel");
+    tracePanel.style.marginTop = "14px";
+    tracePanel.appendChild(el("div","","<b style='font-family:var(--mono);font-size:12px;color:var(--muted)'>EXECUTION TRACE</b>"));
+    tracePanel.appendChild(buildTraceTable());
+    right.appendChild(tracePanel);
+
+    grid.appendChild(right);
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function buildTimeline(){
+    const box = el("div","timeline");
+    if (!sim.timeline.length){
+      box.appendChild(el("div","small-note","Run the clock to see the cycle-by-cycle waveform."));
+      return box;
+    }
+    const rowH = 22, colW = 34, labelW = 110, pad = 10;
+    const rows = [...OUTPUTS.map(o=>({key:o,type:"out"})), ...INPUTS.map(i=>({key:i,type:"in"}))];
+    const w = labelW + colW*sim.timeline.length + pad*2;
+    const h = pad*2 + rowH*rows.length + 18;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("width", w);
+    svg.setAttribute("height", h);
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+
+    function svgEl(tag, attrs){
+      const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+      return e;
+    }
+
+    // cycle numbers
+    sim.timeline.forEach((t,i)=>{
+      const x = labelW + i*colW + colW/2;
+      svg.appendChild(svgEl("text",{x, y: pad+9, fill:"var(--muted)", "font-size":"9", "font-family":"var(--mono)", "text-anchor":"middle"})).textContent = t.cycle;
+    });
+
+    rows.forEach((r, ri)=>{
+      const y = pad + 18 + ri*rowH;
+      svg.appendChild(svgEl("text",{x:0, y:y+14, fill: r.type==="out" ? "#8fb3ad" : "var(--muted)", "font-size":"10.5", "font-family":"var(--mono)"})).textContent = r.key;
+      sim.timeline.forEach((t,i)=>{
+        const val = r.type==="out" ? t.out[r.key] : t.inputs[r.key];
+        const x = labelW + i*colW;
+        const color = val ? (r.type==="out" ? "var(--trace)" : "#ffcf85") : "var(--line)";
+        svg.appendChild(svgEl("rect",{x:x+4,y:y, width:colW-8, height: rowH-6, rx:2,
+          fill: val ? color+"33" : "transparent", stroke: color, "stroke-width":1}));
+        if (val){
+          svg.appendChild(svgEl("text",{x:x+colW/2, y:y+(rowH-6)/2+4, fill:color, "font-size":"9",
+            "font-family":"var(--mono)", "text-anchor":"middle"})).textContent = "1";
+        }
+      });
+    });
+    box.appendChild(svg);
+    return box;
+  }
+
+  function buildTraceTable(){
+    const box = el("div","scroll-table");
+    const t = document.createElement("table");
+    t.innerHTML = `<thead><tr><th>Clk</th><th>Current</th><th>Input</th><th>Condition</th><th>Next</th><th>Output</th><th>Status</th></tr></thead>`;
+    const tb = document.createElement("tbody");
+    if (!sim.trace.length){
+      tb.innerHTML = `<tr class="empty-row"><td colspan="7">No cycles executed yet.</td></tr>`;
+    } else {
+      [...sim.trace].reverse().forEach(r=>{
+        const tr = document.createElement("tr");
+        const outStr = OUTPUTS.filter(k=>r.out[k]).join(", ") || "&mdash;";
+        const statusColor = r.status==="FAULT" ? "var(--red)" : (r.status==="DONE" ? "var(--amber)" : (r.status==="WAIT" ? "var(--muted)" : "var(--trace)"));
+        tr.innerHTML = `<td>${r.cycle}</td><td>${r.current}</td><td>${r.input}</td><td>${r.cond}</td><td>${r.next}</td><td>${outStr}</td><td style="color:${statusColor}">${r.status}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+    t.appendChild(tb);
+    box.appendChild(t);
+    return box;
+  }
+
+  // ---- State Diagram ----
+  function renderDiagramView(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","04 / STATE DIAGRAM"));
+    wrap.appendChild(el("p","view-desc","Full transition graph. The device's current state is highlighted; fault states are outlined in red."));
+    const panel = el("div","panel");
+    panel.appendChild(buildStateDiagram());
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
+  const DIAGRAM_LAYOUT = {
+    IDLE:          {x:60,  y:220},
+    INPUT_CHECK:   {x:250, y:220},
+    PROCESSING:    {x:440, y:220},
+    VALIDATION:    {x:630, y:220},
+    OUTPUT:        {x:820, y:220},
+    COMPLETE:      {x:1000,y:220},
+    INPUT_ERROR:   {x:250, y:60},
+    PROCESS_ERROR: {x:440, y:60},
+    SYSTEM_FAULT:  {x:820, y:60},
+    TIMEOUT:       {x:630, y:380}
+  };
+  const DIAGRAM_EDGES = [
+    ["IDLE","INPUT_CHECK","START=1"],
+    ["INPUT_CHECK","PROCESSING","DATA_VALID=1"],
+    ["INPUT_CHECK","INPUT_ERROR","FAULT=1"],
+    ["PROCESSING","VALIDATION","READY=1"],
+    ["PROCESSING","PROCESS_ERROR","FAULT=1"],
+    ["PROCESSING","TIMEOUT","wait timeout"],
+    ["VALIDATION","OUTPUT","VALID=1"],
+    ["VALIDATION","PROCESS_ERROR","VALID=0"],
+    ["VALIDATION","SYSTEM_FAULT","FAULT=1"],
+    ["OUTPUT","COMPLETE","ACK=1"],
+    ["OUTPUT","SYSTEM_FAULT","FAULT=1"],
+    ["OUTPUT","TIMEOUT","wait timeout"]
+  ];
+
+  function buildStateDiagram(){
+    const box = el("div","diagram-wrap");
+    const W=1080, H=460;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+    svg.setAttribute("width","100%");
+    svg.style.minWidth = "820px";
+
+    const defs = document.createElementNS("http://www.w3.org/2000/svg","defs");
+    defs.innerHTML = `<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L7,3 z" fill="var(--muted)"/></marker>`;
+    svg.appendChild(defs);
+
+    function svgEl(tag, attrs){
+      const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+      return e;
+    }
+
+    // edges
+    DIAGRAM_EDGES.forEach(([a,b,label])=>{
+      const pa = DIAGRAM_LAYOUT[a], pb = DIAGRAM_LAYOUT[b];
+      const midx = (pa.x+pb.x)/2, midy=(pa.y+pb.y)/2;
+      const dx = pb.x-pa.x, dy = pb.y-pa.y;
+      const len = Math.sqrt(dx*dx+dy*dy) || 1;
+      const ux = dx/len, uy = dy/len;
+      const r = 46;
+      const x1 = pa.x+ux*r, y1 = pa.y+uy*r, x2 = pb.x-ux*r, y2 = pb.y-uy*r;
+      svg.appendChild(svgEl("line",{x1,y1,x2,y2,stroke:"var(--line)","stroke-width":1.4,"marker-end":"url(#arrow)"}));
+      const bgw = label.length*5.4+8;
+      svg.appendChild(svgEl("rect",{x:midx-bgw/2,y:midy-9,width:bgw,height:14,fill:"var(--panel)"}));
+      svg.appendChild(svgEl("text",{x:midx,y:midy+2,fill:"var(--muted)","font-size":"9.5","font-family":"var(--mono)","text-anchor":"middle"})).textContent = label;
+    });
+
+    // nodes
+    STATES.forEach(s=>{
+      const p = DIAGRAM_LAYOUT[s];
+      const isCurrent = s === sim.state;
+      const isPrev = s === sim.prevState;
+      const isFault = FAULT_STATES.includes(s);
+      const isDone = s === "COMPLETE";
+      let stroke = "var(--line)", fill = "var(--panel2)", tcolor = "var(--text)";
+      if (isFault){ stroke = "#7a3030"; }
+      if (isDone){ stroke = "#8a6a2a"; }
+      if (isCurrent){ stroke = isFault?"var(--red)":(isDone?"var(--amber)":"var(--trace)"); fill = "rgba(125,255,192,0.08)"; }
+      else if (isPrev){ stroke = "var(--trace-dim)"; }
+
+      const g = svgEl("g",{});
+      g.appendChild(svgEl("rect",{x:p.x-44,y:p.y-24,width:88,height:48,rx:6,fill,stroke,"stroke-width":isCurrent?2:1.2}));
+      const label = s.replace("_","\n");
+      const lines = s.split("_");
+      lines.forEach((ln,i)=>{
+        g.appendChild(svgEl("text",{x:p.x,y:p.y-2+ i*11 - (lines.length-1)*5.5, fill: isCurrent?stroke:tcolor,
+          "font-size":"10","font-family":"var(--mono)","text-anchor":"middle"})).textContent = ln;
+      });
+      svg.appendChild(g);
+    });
+
+    // legend
+    const legend = [
+      ["Current state","var(--trace)"],["Previous state","var(--trace-dim)"],
+      ["Fault state","var(--red)"],["Completed state","var(--amber)"]
+    ];
+    legend.forEach(([label,color],i)=>{
+      const x = 20 + i*170, y = H-16;
+      svg.appendChild(svgEl("rect",{x,y:y-8,width:9,height:9,fill:color}));
+      svg.appendChild(svgEl("text",{x:x+14,y,fill:"var(--muted)","font-size":"9.5","font-family":"var(--mono)"})).textContent = label;
+    });
+
+    box.appendChild(svg);
+    return box;
+  }
+
+  // ---- Truth Table ----
+  function renderTruthTable(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","05 / TRUTH TABLE"));
+    wrap.appendChild(el("p","view-desc","Enumerated next-state and output logic for every non-terminal state, for the two governing input conditions."));
+
+    const panel = el("div","panel");
+    const box = el("div","scroll-table tall");
+    const t = document.createElement("table");
+    t.innerHTML = `<thead><tr><th>State</th><th>Condition</th><th>Next state</th><th>PROCESS_ENABLE</th><th>SUCCESS</th><th>ERROR</th></tr></thead>`;
+    const tb = document.createElement("tbody");
+
+    STATES.filter(s=>!TERMINAL_STATES.includes(s)).forEach(s=>{
+      DESIGNER_RULES[s].forEach(([cond,res])=>{
+        const nxtMatch = res.match(/&rarr; (\w+)/);
+        const nxt = nxtMatch ? nxtMatch[1] : s;
+        const out = outputsFor(nxt);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${s}</td><td>${cond}</td><td>${nxt}</td>
+          <td><span class="pill-out ${out.PROCESS_ENABLE?'hi':''}">${out.PROCESS_ENABLE}</span></td>
+          <td><span class="pill-out ${out.SUCCESS?'hi':''}">${out.SUCCESS}</span></td>
+          <td><span class="pill-out ${out.ERROR?'err':''}">${out.ERROR}</span></td>`;
+        tb.appendChild(tr);
+      });
+    });
+    t.appendChild(tb);
+    box.appendChild(t);
+    panel.appendChild(box);
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
+  // ---- Test Cases ----
+  function renderTestCasesView(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","06 / TEST CASES"));
+    wrap.appendChild(el("p","view-desc","Predefined input sequences that exercise each major path through the workflow, run against the live FSM logic."));
+    const runAllBtn = el("button","btn primary","Run all test cases");
+    runAllBtn.onclick = runAllTests;
+    wrap.appendChild(runAllBtn);
+    const holder = el("div","");
+    holder.id = "tc-holder";
+    holder.style.marginTop = "14px";
+    wrap.appendChild(holder);
+    renderTestCasesInto(holder);
+    return wrap;
+  }
+
+  function renderTestCasesInto(holder){
+    holder.innerHTML = "";
+    TEST_CASES.forEach(tc=>{
+      const card = el("div","tc-card");
+      card.appendChild(el("h3", "", tc.name));
+      card.appendChild(el("p","",tc.desc));
+      const btn = el("button","btn","Run this test");
+      btn.onclick = ()=>{ runTestCase(tc); renderTestCasesInto(holder); };
+      card.appendChild(btn);
+      const res = testResults[tc.id];
+      if (res){
+        const r = el("div","tc-result "+(res.pass?"pass":"fail"),
+          (res.pass ? "&#10003; PASS" : "&#10007; FAIL") + ` &mdash; reached ${res.finalState} after ${res.cycles} cycles (expected ${tc.expect}).`);
+        card.appendChild(r);
+      }
+      holder.appendChild(card);
+    });
+  }
+
+  function renderTestCases(){
+    const holder = document.getElementById("tc-holder");
+    if (holder) renderTestCasesInto(holder);
+  }
+
+  // ---- Fault Injection ----
+  function renderFaultView(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","07 / FAULT INJECTION"));
+    wrap.appendChild(el("p","view-desc","Assert FAULT at any point in the workflow and observe which fault state the device lands in. All injected faults are timestamped below."));
+
+    const panel = el("div","panel");
+    const flex = el("div","flex-between");
+    flex.appendChild(el("div","","<b style='font-family:var(--mono);font-size:12px;color:var(--muted)'>FAULT SIGNAL</b>"));
+    const toggle = el("div","sig-toggle"+(sim.inputs.FAULT?" on":""));
+    toggle.style.width = "140px";
+    toggle.innerHTML = `<span class="name">FAULT</span><span class="dot"></span>`;
+    toggle.onclick = ()=>{ sim.inputs.FAULT = sim.inputs.FAULT?0:1; renderAll(); };
+    flex.appendChild(toggle);
+    panel.appendChild(flex);
+
+    const note = el("div","small-note",
+      `Asserting FAULT while the device is in <b>INPUT_CHECK</b>, <b>PROCESSING</b>, <b>VALIDATION</b> or <b>OUTPUT</b> routes it to a dedicated fault state. Step or Run the clock (Simulator tab) for it to take effect.`);
+    panel.appendChild(note);
+
+    const btnrow = el("div","btnrow");
+    const stepBtn = el("button","btn primary","Step clock now");
+    stepBtn.onclick = ()=>stepCycle();
+    btnrow.appendChild(stepBtn);
+    panel.appendChild(btnrow);
+    wrap.appendChild(panel);
+
+    const logPanel = el("div","panel");
+    logPanel.style.marginTop = "14px";
+    logPanel.appendChild(el("div","","<b style='font-family:var(--mono);font-size:12px;color:var(--muted)'>FAULT LOG</b>"));
+    if (!sim.faultLog.length){
+      logPanel.appendChild(el("div","small-note","No faults recorded yet."));
+    } else {
+      [...sim.faultLog].reverse().forEach(f=>{
+        const item = el("div","fault-log-item");
+        item.innerHTML = `<span class="tag">[cyc ${f.cycle}]</span><span>${f.msg}</span>`;
+        logPanel.appendChild(item);
+      });
+    }
+    wrap.appendChild(logPanel);
+    return wrap;
+  }
+
+  // ---- State Logs ----
+  function renderLogsView(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","08 / STATE LOGS"));
+    wrap.appendChild(el("p","view-desc","Complete record of every executed cycle in this session. Export as CSV for offline analysis."));
+
+    const btnrow = el("div","btnrow");
+    btnrow.style.marginTop = "0";
+    btnrow.style.marginBottom = "14px";
+    const exportBtn = el("button","btn primary","Export CSV");
+    exportBtn.onclick = exportCsv;
+    exportBtn.disabled = !sim.trace.length;
+    const clearBtn = el("button","btn danger","Clear log");
+    clearBtn.onclick = ()=>{ sim.trace=[]; sim.timeline=[]; renderAll(); };
+    btnrow.appendChild(exportBtn); btnrow.appendChild(clearBtn);
+    wrap.appendChild(btnrow);
+
+    const panel = el("div","panel");
+    panel.appendChild(buildTraceTable());
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
+  function exportCsv(){
+    const header = "cycle,current_state,inputs,condition,next_state,outputs,status";
+    const rows = sim.trace.map(r=>{
+      const outStr = OUTPUTS.filter(k=>r.out[k]).join("|") || "";
+      const cond = r.cond.replace(/&mdash;/g,"-");
+      return [r.cycle,r.current,r.input,`"${cond}"`,r.next,outStr,r.status].join(",");
+    });
+    const csv = [header,...rows].join("\n");
+    const blob = new Blob([csv],{type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "state-log.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ---- About ----
+  function renderAbout(){
+    const wrap = el("div");
+    wrap.appendChild(el("h2","view-title","09 / ABOUT"));
+    const panel = el("div","panel about-body");
+    panel.innerHTML = `
+      <p>This is a self-contained, client-side simulator for a clocked finite-state device: a small
+      sequential logic workflow that moves through input validation, processing, output, and
+      completion &mdash; with dedicated fault states for input errors, processing errors, timeouts,
+      and system faults.</p>
+
+      <h3>How it works</h3>
+      <p>Every clock cycle, the current state and the six input signals (<code>START</code>,
+      <code>DATA_VALID</code>, <code>READY</code>, <code>VALID</code>, <code>ACK</code>,
+      <code>FAULT</code>) are evaluated against a fixed transition table (see Workflow Designer and
+      Truth Table) to produce the next state and the three output signals
+      (<code>PROCESS_ENABLE</code>, <code>SUCCESS</code>, <code>ERROR</code>). A state that waits
+      too long for its condition automatically times out.</p>
+
+      <h3>Tabs</h3>
+      <p><b>Dashboard</b> &mdash; live snapshot. <b>Workflow Designer</b> &mdash; the rule set driving
+      the FSM. <b>Simulator</b> &mdash; manual and automatic clocking with a waveform timeline.
+      <b>State Diagram</b> &mdash; the full transition graph. <b>Truth Table</b> &mdash; enumerated
+      logic. <b>Test Cases</b> &mdash; scripted scenarios with pass/fail checks. <b>Fault
+      Injection</b> &mdash; assert faults on demand and review the fault log. <b>State Logs</b>
+      &mdash; the full cycle-by-cycle history, exportable as CSV.</p>
+
+      <h3>Implementation</h3>
+      <p>Single HTML file, no build step, no external requests. All state lives in memory for the
+      current browser session; reload the page to start over.</p>
+    `;
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
+  /* ---------------------------------------------------------------
+     7. INIT
+  --------------------------------------------------------------- */
+  buildTabs();
+  renderAll();
+
+})();
+</script>
+</body>
+</html>
